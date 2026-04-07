@@ -1,0 +1,5 @@
+{
+  "name": "AR Drawing Projector",
+  "description": "Project digital images onto paper using your camera for easy tracing and drawing.",
+  "requestFramePermissions": ["camera"]
+}
