@@ -103,22 +103,42 @@ export default function App() {
 
   // Camera Setup
   const startCamera = useCallback(async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Seu navegador não suporta acesso à câmera.');
+      return;
+    }
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
         audio: false,
       });
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
       setIsCameraActive(true);
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error accessing camera:', err);
-      setError('Could not access camera. Please ensure permissions are granted.');
+      if (err.name === 'NotAllowedError') {
+        setError('Permissão de câmera negada. Por favor, habilite o acesso.');
+      } else {
+        setError('Erro ao acessar a câmera: ' + err.message);
+      }
     }
   }, []);
+
+  // Ensure stream is attached to video element
+  useEffect(() => {
+    if (isCameraActive && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play().catch(e => console.error("Error playing video:", e));
+      };
+    }
+  }, [isCameraActive, stream]);
 
   const stopCamera = useCallback(() => {
     if (stream) {
@@ -184,32 +204,38 @@ export default function App() {
   };
 
   return (
-    <div className="relative h-screen w-screen bg-black overflow-hidden font-sans text-white">
+    <div className="relative h-screen w-screen bg-gray-900 overflow-hidden font-sans text-white">
       {/* Camera Background */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 bg-gray-950">
         {isCameraActive ? (
           <video
             ref={videoRef}
             autoPlay
             playsInline
+            muted
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-900 px-6 text-center">
-            <div className="mb-6 rounded-full bg-zinc-800 p-6">
-              <Camera className="h-12 w-12 text-zinc-400" />
+          <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900 px-6 text-center">
+            <div className="mb-6 rounded-full bg-gray-800 p-6 shadow-xl">
+              <Camera className="h-12 w-12 text-gray-400" />
             </div>
-            <h1 className="mb-2 text-2xl font-bold">{t.mainTitle}</h1>
-            <p className="mb-8 max-w-xs text-zinc-400">
+            <h1 className="mb-2 text-3xl font-bold tracking-tight">{t.mainTitle}</h1>
+            <p className="mb-8 max-w-xs text-gray-400">
               {t.mainDesc}
             </p>
             <button
               onClick={startCamera}
-              className="rounded-full bg-blue-600 px-8 py-3 font-semibold transition-all hover:bg-blue-500 active:scale-95"
+              className="rounded-full bg-blue-600 px-10 py-4 font-bold text-lg shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-500 active:scale-95"
             >
               {t.startBtn}
             </button>
-            {error && <p className="mt-4 text-red-500 text-sm">{t.camError}</p>}
+            {error && (
+              <div className="mt-6 rounded-xl bg-red-500/10 p-4 border border-red-500/20">
+                <p className="text-red-400 text-sm font-medium">{t.camError}</p>
+                <p className="mt-1 text-red-500/70 text-xs">{error}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -326,11 +352,11 @@ export default function App() {
 
       {/* UI Controls - Bottom Panel */}
       {isCameraActive && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-6 bg-gradient-to-t from-black/80 to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-6 bg-gradient-to-t from-gray-950 to-transparent">
           <div className="mx-auto max-w-md space-y-6">
             {/* Opacity Slider */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-medium uppercase tracking-wider text-zinc-400">
+              <div className="flex justify-between text-xs font-medium uppercase tracking-wider text-gray-400">
                 <span>Opacity</span>
                 <span>{Math.round(opacity * 100)}%</span>
               </div>
@@ -341,7 +367,7 @@ export default function App() {
                 step="0.01"
                 value={opacity}
                 onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-700 accent-blue-500"
+                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-gray-700 accent-blue-500"
               />
             </div>
 
@@ -349,17 +375,17 @@ export default function App() {
             <div className="flex items-center justify-center gap-6">
               <button
                 onClick={() => setScale(prev => Math.max(0.1, prev - 0.1))}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 transition-transform active:scale-90"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-800 shadow-lg transition-transform active:scale-90"
               >
                 <ZoomOut className="h-6 w-6" />
               </button>
               <div className="text-center min-w-[60px]">
-                <span className="text-sm font-bold text-zinc-300">Scale</span>
+                <span className="text-sm font-bold text-gray-300">Scale</span>
                 <div className="text-lg font-mono">{scale.toFixed(1)}x</div>
               </div>
               <button
                 onClick={() => setScale(prev => Math.min(5, prev + 0.1))}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 transition-transform active:scale-90"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-800 shadow-lg transition-transform active:scale-90"
               >
                 <ZoomIn className="h-6 w-6" />
               </button>
@@ -373,14 +399,14 @@ export default function App() {
                 max="360"
                 value={rotation}
                 onChange={(e) => setRotation(parseInt(e.target.value))}
-                className="h-1.5 w-full max-w-[200px] cursor-pointer appearance-none rounded-full bg-zinc-700 accent-blue-500"
+                className="h-1.5 w-full max-w-[200px] cursor-pointer appearance-none rounded-full bg-gray-700 accent-blue-500"
               />
-              <span className="text-xs font-mono text-zinc-400">{rotation}°</span>
+              <span className="text-xs font-mono text-gray-400">{rotation}°</span>
             </div>
 
             {/* Trace Contrast Control (Only when Trace is active) */}
             {isTracing && (
-              <div className="pt-4 border-t border-zinc-800 space-y-2">
+              <div className="pt-4 border-t border-gray-800 space-y-2">
                 <div className="flex justify-between text-xs font-medium uppercase tracking-wider text-yellow-500">
                   <span>{language === 'pt' ? 'Contraste do Traço' : 'Trace Contrast'}</span>
                   <span>{traceContrast}%</span>
@@ -392,7 +418,7 @@ export default function App() {
                   step="10"
                   value={traceContrast}
                   onChange={(e) => setTraceContrast(parseInt(e.target.value))}
-                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-700 accent-yellow-500"
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-gray-700 accent-yellow-500"
                 />
               </div>
             )}
@@ -402,11 +428,11 @@ export default function App() {
 
       {/* Presets Modal */}
       {showPresets && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-zinc-900 p-6 shadow-2xl border border-zinc-800">
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-950/90 p-6 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl bg-gray-900 p-6 shadow-2xl border border-gray-800">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-bold">{language === 'pt' ? 'Escolha um Esboço' : 'Choose a Sketch'}</h2>
-              <button onClick={() => setShowPresets(false)} className="text-zinc-400 hover:text-white">
+              <button onClick={() => setShowPresets(false)} className="text-gray-400 hover:text-white p-1">
                 <X className="h-6 w-6" />
               </button>
             </div>
@@ -414,21 +440,21 @@ export default function App() {
             {/* Search Field */}
             <form onSubmit={handleSearch} className="mb-6 flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t.searchPlaceholder}
-                  className="w-full rounded-xl bg-zinc-800 py-2 pl-10 pr-4 text-sm outline-none ring-blue-500 focus:ring-2"
+                  className="w-full rounded-xl bg-gray-800 py-3 pl-10 pr-4 text-sm outline-none ring-blue-500 focus:ring-2 border border-gray-700"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSearching}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold transition-all hover:bg-blue-500 disabled:opacity-50"
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold transition-all hover:bg-blue-500 disabled:opacity-50 shadow-lg shadow-blue-900/20"
               >
-                {isSearching ? t.searching : t.searchBtn}
+                {isSearching ? <RotateCcw className="h-4 w-4 animate-spin" /> : t.searchBtn}
               </button>
             </form>
 
@@ -436,10 +462,18 @@ export default function App() {
               {/* Search Results */}
               {searchResults.length > 0 && (
                 <div className="col-span-2 mb-2">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">
-                    {language === 'pt' ? 'Resultados da Busca' : 'Search Results'}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">
+                      {language === 'pt' ? 'Resultados da Busca' : 'Search Results'}
+                    </h3>
+                    <button 
+                      onClick={() => setSearchResults([])}
+                      className="text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase tracking-wider"
+                    >
+                      {language === 'pt' ? 'Limpar' : 'Clear'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     {searchResults.map((img) => (
                       <button
                         key={img.id}
@@ -448,12 +482,12 @@ export default function App() {
                           setShowPresets(false);
                           resetOverlay();
                         }}
-                        className="group relative aspect-square overflow-hidden rounded-xl bg-zinc-800 ring-2 ring-transparent transition-all hover:ring-blue-500"
+                        className="group relative aspect-square overflow-hidden rounded-2xl bg-gray-800 ring-2 ring-transparent transition-all hover:ring-blue-500"
                       >
                         <img
                           src={img.url}
                           alt={img.label}
-                          className="h-full w-full object-cover opacity-60 transition-opacity group-hover:opacity-100"
+                          className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
                           referrerPolicy="no-referrer"
                         />
                       </button>
@@ -464,10 +498,10 @@ export default function App() {
 
               {/* Default Presets */}
               <div className="col-span-2 mb-2">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">
                   {language === 'pt' ? 'Sugestões' : 'Suggestions'}
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   {PRESET_IMAGES.map((img) => (
                     <button
                       key={img.id}
@@ -476,15 +510,17 @@ export default function App() {
                         setShowPresets(false);
                         resetOverlay();
                       }}
-                      className="group relative aspect-square overflow-hidden rounded-xl bg-zinc-800 ring-2 ring-transparent transition-all hover:ring-blue-500"
+                      className="group relative aspect-square overflow-hidden rounded-2xl bg-gray-800 ring-2 ring-transparent transition-all hover:ring-blue-500"
                     >
                       <img
                         src={img.url}
                         alt={img.label}
-                        className="h-full w-full object-cover opacity-60 transition-opacity group-hover:opacity-100"
+                        className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
                         referrerPolicy="no-referrer"
                       />
-                      <span className="absolute bottom-2 left-2 text-xs font-semibold">{img.label}</span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex items-end p-2">
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{img.label}</span>
+                      </div>
                     </button>
                   ))}
                 </div>
